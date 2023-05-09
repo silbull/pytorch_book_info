@@ -4,6 +4,8 @@ import torch.nn.functional as F #torch.nn.functionalはPyTorchのニューラル
 import torchvision
 from torch.utils.tensorboard import SummaryWriter #SummaryWriterはTensorBoardのログを書き込むためのモジュール
 from tqdm.auto import tqdm #tqdmはプログレスバーを表示するためのモジュール
+import matplotlib.pyplot as plt #matplotlib.pyplotはグラフを描画するためのモジュール
+
 
 torch.manual_seed(0) #乱数のシードを固定
 torch.cuda.manual_seed(0) #乱数のシードを固定
@@ -37,7 +39,7 @@ test_dataset = torchvision.datasets.MNIST(
     transform = pre_process
 )
 
-#データローダーの作成
+#データローダーの作成, データローダーはデータセットからミニバッチを作成する
 train_loader = torch.utils.data.DataLoader(
     dataset = train_dataset,
     batch_size = 512,
@@ -87,20 +89,28 @@ for epoch in tqdm(range(epochs), desc="Epochs"):
     n_test_acc, test_loss = 0.0, 0.0
     num_train, num_test = 0, 0
 
+# imagesは４次元テンソルであり、(batch_size, channels, height, width)の形状、labelsは1次元テンソルであり、(batch_size,)の形状をしている。
     for images, labels in tqdm(
         train_loader,
         total = len(train_loader),
-        leave=False,
+        leave=False, #ターミナル上にプログレスバーを残すかどうか
         desc = "Training" ,
     ):
         
         # 1バッチあたりのデータ件数
         train_batch_size = len(labels)
+        # print(train_batch_size) #debug == 512
+
         # 1エポックあたりのデータ累積件数
-        num_train += train_batch_size
+        num_train += train_batch_size #バッチ処理を行うたびに、num_trainにtrain_batch_sizeを加算し、訓練データの累積件数を計算している
 
 
         images, labels = images.to(device), labels.to(device)
+
+        """
+        print(images.shape) #debug == torch.Size([512, 784]) == 512枚の画像データが784次元のベクトルに変換されている
+        print(labels.shape) #debug == torch.Size([512]) == 512枚の画像データに対応するラベルデータ
+        """
 
         #勾配を初期化
         optimizer.zero_grad()
@@ -113,9 +123,18 @@ for epoch in tqdm(range(epochs), desc="Epochs"):
         #パラメータの更新
         optimizer.step()
 
-        predicted = torch.max(outputs.data, 1)[1]
+        """
+        torch.max()は、指定したテンソルの最大値とその位置を返す関数。第1引数には対象となるテンソルを指定し、第2引数には最大値を求める軸を指定する。
+        outputs.dataは、モデルの出力として得られたテンソルであり、それぞれの行に対して、各クラスに属する確率が格納されています。
+        このテンソルの最大値を求める軸を1に指定することで、「各行（サンプル）ごとに最も確率の高いクラスの値とその位置（インデックス）」を求めることができます。
+        [1]は、torch.max()の返り値から位置（インデックス）を取り出すために使用されます。torch.max()は最大値とその位置の2つの値を返すので、位置を取り出すためには1を指定します。
+        したがって、torch.max(outputs.data, 1)[1]は、各サンプルに対する最も確率の高いクラスのインデックスを表します。
+        """
 
-        train_loss += loss.item() * labels.size(0) #labels.size(0)はバッチサイズ, .size(1)は次元数
+        predicted = torch.max(outputs.data, 1)[1] 
+        #print(predicted) #debug
+
+        train_loss += loss.item() * labels.size(0) #loss.item()は現在のバッチのロスの平均値だからバッチサイズをかけてる。labels.size(0)はバッチサイズを返す
         n_train_acc += (predicted == labels).sum().item() 
 
     
@@ -134,7 +153,7 @@ for epoch in tqdm(range(epochs), desc="Epochs"):
         #予測
         predicted = torch.max(outputs.data, 1)[1]
         #正解数のカウント
-        num_test += test_labels.size(0)
+        num_test += test_labels.size(0) #テストバッチサイズが終わったら、そのサイズ分をテスト数に足す
         n_test_acc += (predicted == test_labels).sum().item()
         #損失の累積
         test_loss += loss.item() * test_labels.size(0)
@@ -150,5 +169,25 @@ for epoch in tqdm(range(epochs), desc="Epochs"):
     # 記録
     item = np.array([epoch+1 , ave_train_loss, train_acc, ave_val_loss, val_acc])
     results = np.vstack((results, item))
+
+# 結果のグラフ化
+# 
+# 1行2列のグラフを作成
+fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+# 1列目にはlossの推移
+ax[0].plot(results[:, 0], results[:, 1], label='train loss')
+ax[0].plot(results[:, 0], results[:, 3], label='test loss')
+ax[0].set_xlabel('epoch')
+ax[0].set_ylabel('loss')
+ax[0].legend()
+# 2列目にはaccuracyの推移
+ax[1].plot(results[:, 0], results[:, 2], label='train acc')
+ax[1].plot(results[:, 0], results[:, 4], label='test acc')
+ax[1].set_xlabel('epoch')
+ax[1].set_ylabel('acc')
+ax[1].legend()
+# グラフを表示
+plt.savefig('result.png')
+
 
 
