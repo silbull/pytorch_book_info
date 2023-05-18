@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "C:\\Users\\miyaw\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\",
+        "C:\\Users\\miyaw\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\",
+        "/home/miyawaki/anaconda3/envs/irvs_get_started/lib/python3.10/site-packages/",
+        "./notebooks"
+    ]
+}
